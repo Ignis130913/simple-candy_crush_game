@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candy Crush</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+    }
+
+    #grid-container {
+      display: grid;
+      grid-template-columns: repeat(8, 60px); /* Increased candy size */
+      gap: 5px;
+      margin: 20px auto;
+      width: fit-content;
+    }
+
+    .candy {
+      width: 60px; /* Increased candy size */
+      height: 60px; /* Increased candy size */
+      border-radius: 50%; /* Rounded shape */
+      cursor: pointer; /* Gradient background */
+      box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3); /* Add a subtle shadow */
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .candy.selected {
+      transform: scale(1.1);
+    }
+
+    @keyframes fallAnimation {
+      0% {
+        transform: translateY(-50px);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .falling-candy {
+      animation: fallAnimation 0.5s forwards;
+    }
+
+    #scoreboard {
+      text-align: center;
+      font-size: 24px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="grid-container"></div>
+  <div id="scoreboard">Score: <span id="score">0</span></div>
+  
+  <script>
+    const numRows = 8;
+    const numCols = 8;
+    const candyColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
+
+    let grid = [];
+    let score = 0;
+
+    function createGrid() {
+      const gridContainer = document.getElementById('grid-container');
+      for (let row = 0; row < numRows; row++) {
+        let rowArray = [];
+        for (let col = 0; col < numCols; col++) {
+          const candy = document.createElement('div');
+          candy.className = 'candy';
+          candy.dataset.row = row;
+          candy.dataset.col = col;
+          candy.style.backgroundColor = getRandomColor();
+          candy.addEventListener('click', () => handleCandyClick(candy));
+          gridContainer.appendChild(candy);
+          rowArray.push(candy);
+        }
+        grid.push(rowArray);
+      }
+    }
+
+    function getRandomColor() {
+      const randomIndex = Math.floor(Math.random() * candyColors.length);
+      return candyColors[randomIndex];
+    }
+
+    function swapCandies(candy1, candy2) {
+      const tempColor = candy1.style.backgroundColor;
+      candy1.style.backgroundColor = candy2.style.backgroundColor;
+      candy2.style.backgroundColor = tempColor;
+    }
+
+    function checkForMatches() {
+      let matched = false;
+      for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+          const currentColor = grid[row][col].style.backgroundColor;
+          // Check horizontally
+          if (col < numCols - 2 &&
+              currentColor === grid[row][col + 1].style.backgroundColor &&
+              currentColor === grid[row][col + 2].style.backgroundColor) {
+            matched = true;
+          }
+          // Check vertically
+          if (row < numRows - 2 &&
+              currentColor === grid[row + 1][col].style.backgroundColor &&
+              currentColor === grid[row + 2][col].style.backgroundColor) {
+            matched = true;
+          }
+        }
+      }
+      return matched;
+    }
+
+    function handleCandyClick(clickedCandy) {
+      const row = parseInt(clickedCandy.dataset.row);
+      const col = parseInt(clickedCandy.dataset.col);
+
+      // Check if there's a selected candy
+      if (!selectedCandy) {
+        selectedCandy = { row, col };
+        clickedCandy.classList.add('selected');
+      } else {
+        const { row: prevRow, col: prevCol } = selectedCandy;
+        // Check if the clicked candy is adjacent to the selected candy
+        if ((Math.abs(row - prevRow) === 1 && col === prevCol) ||
+            (Math.abs(col - prevCol) === 1 && row === prevRow)) {
+          // Swap candies
+          swapCandies(grid[row][col], grid[prevRow][prevCol]);
+          // Check for matches
+          if (checkForMatches()) {
+            // If there are matches, clear them and refill the grid
+            clearMatchesAndRefill();
+            updateScore();
+          } else {
+            // If there are no matches, swap candies back
+            setTimeout(() => {
+              swapCandies(grid[row][col], grid[prevRow][prevCol]);
+            }, 500);
+          }
+        }
+        // Reset selection
+        grid[prevRow][prevCol].classList.remove('selected');
+        selectedCandy = null;
+      }
+    }
+
+    function clearMatchesAndRefill() {
+      // Create a 2D array to track which candies are part of matches
+      const matches = new Array(numRows).fill().map(() => new Array(numCols).fill(false));
+
+      // Step 1: Identify and mark matched candies
+      for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+          const currentColor = grid[row][col].style.backgroundColor;
+          // Check horizontally
+          if (col < numCols - 2 &&
+              currentColor === grid[row][col + 1].style.backgroundColor &&
+              currentColor === grid[row][col + 2].style.backgroundColor) {
+            matches[row][col] = true;
+            matches[row][col + 1] = true;
+            matches[row][col + 2] = true;
+          }
+          // Check vertically
+          if (row < numRows - 2 &&
+              currentColor === grid[row + 1][col].style.backgroundColor &&
+              currentColor === grid[row + 2][col].style.backgroundColor) {
+            matches[row][col] = true;
+            matches[row + 1][col] = true;
+            matches[row + 2][col] = true;
+          }
+        }
+      }
+
+      // Step 2: Remove matched candies and create new ones
+      for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+          if (matches[row][col]) {
+            grid[row][col].style.backgroundColor = '';
+            grid[row][col].classList.add('falling-candy');
+            setTimeout(() => {
+              grid[row][col].classList.remove('falling-candy');
+              grid[row][col].style.backgroundColor = getRandomColor();
+            }, 500);
+          }
+        }
+      }
+
+      // Step 3: Update the score
+      score += 10;
+      document.getElementById('score').textContent = score;
+    }
+
+    let selectedCandy = null;
+    createGrid();
+  </script>
+</body>
+</html>
